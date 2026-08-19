@@ -77,9 +77,15 @@ onMounted(() => {
   movie.value = movieData;
   cinema.value = route.query.cinema || "ไม่ระบุโรงภาพยนตร์";
 
-  posterUrl.value = movie.value.poster_path
-    ? `https://image.tmdb.org/t/p/w500${movie.value.poster_path}`
-    : "https://via.placeholder.com/300x450?text=No+Poster";
+  const poster = movie.value.poster_path || movie.value.poster;
+  posterUrl.value = poster?.startsWith("http")
+    ? poster
+    : poster
+    ? `https://image.tmdb.org/t/p/w500${poster}`
+    : `https://placehold.co/500x750/17202c/f97316?text=${encodeURIComponent(movie.value.title || "MovieHub")}`;
+
+  const selectedCinema = movie.value.showtimes?.find((item) => item.cinema === cinema.value);
+  showtimes.value = selectedCinema?.times || ["11:30", "14:00", "17:00", "20:30"];
 
   // ✅ สร้างวันที่ให้เลือก (วันนี้, พรุ่งนี้, มะรืน)
   const today = new Date();

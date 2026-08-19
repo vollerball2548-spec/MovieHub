@@ -34,8 +34,8 @@
           />
         </div>
 
-        <button class="bg-orange w-full py-2 rounded-lg font-semibold hover:bg-orange-600 transition">
-          สมัครสมาชิก
+        <button :disabled="loading" class="bg-orange w-full py-2 rounded-lg font-semibold hover:bg-orange/90 disabled:opacity-60 transition">
+          {{ loading ? "กำลังสมัครสมาชิก..." : "สมัครสมาชิก" }}
         </button>
       </form>
 
@@ -62,18 +62,24 @@ const email = ref("");
 const password = ref("");
 const message = ref("");
 const error = ref("");
+const loading = ref(false);
 
 const register = async () => {
+  error.value = "";
+  message.value = "";
+  loading.value = true;
   try {
     const res = await axios.post("/auth/register", {
-      username: username.value,
-      email: email.value,
+      username: username.value.trim(),
+      email: email.value.trim().toLowerCase(),
       password: password.value,
     });
     message.value = res.data.message;
     setTimeout(() => router.push("/login"), 1000);
   } catch (err) {
     error.value = err.response?.data?.error || "ไม่สามารถสมัครได้";
+  } finally {
+    loading.value = false;
   }
 };
 </script>

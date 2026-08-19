@@ -99,7 +99,7 @@ router.beforeEach((to, from, next) => {
 
   if (to.meta.requiresAuth && !token) {
     // ถ้ายังไม่ได้ล็อกอิน แต่พยายามเข้าเพจที่ต้องใช้ token
-    next("/login");
+    next({ path: "/login", query: { redirect: to.fullPath } });
   } else if ((to.path === "/login" || to.path === "/register") && token) {
     // ถ้ามี token แล้ว แต่พยายามเข้าหน้า login/register ให้กลับหน้าแรก
     next("/");

@@ -10,23 +10,27 @@ const router = express.Router();
  */
 router.post("/register", async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const usernameValue = req.body.username?.trim();
+    const emailValue = req.body.email?.trim().toLowerCase();
+    const { password } = req.body;
 
-    if (!username?.trim() || !email?.trim() || !password || password.length < 6) {
+    if (!usernameValue || !emailValue || !password || password.length < 6) {
       return res.status(400).json({ error: "กรุณากรอกข้อมูลให้ครบ และรหัสผ่านอย่างน้อย 6 ตัวอักษร" });
     }
 
-    // ตรวจสอบชื่อผู้ใช้ซ้ำ
-    const exist = await User.findOne({ username });
+    const exist = await User.findOne({
+      $or: [{ username: usernameValue }, { email: emailValue }],
+    });
     if (exist) {
-      return res.status(400).json({ error: "ชื่อผู้ใช้นี้ถูกใช้แล้ว" });
+      const message = exist.username === usernameValue ? "ชื่อผู้ใช้นี้ถูกใช้แล้ว" : "อีเมลนี้ถูกใช้แล้ว";
+      return res.status(400).json({ error: message });
     }
 
     // เข้ารหัสรหัสผ่าน
     const hashed = await bcrypt.hash(password, 10);
 
     // บันทึกลงฐานข้อมูล
-    const newUser = new User({ username, email, password: hashed });
+    const newUser = new User({ username: usernameValue, email: emailValue, password: hashed });
     await newUser.save();
 
     res.json({ message: "สมัครสมาชิกสำเร็จ!" });
@@ -41,14 +45,15 @@ router.post("/register", async (req, res) => {
  */
 router.post("/login", async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const usernameValue = req.body.username?.trim();
+    const { password } = req.body;
 
-    if (!username?.trim() || !password) {
+    if (!usernameValue || !password) {
       return res.status(400).json({ error: "กรุณากรอกชื่อผู้ใช้และรหัสผ่าน" });
     }
 
     // ตรวจสอบว่ามีผู้ใช้นี้ไหม
-    const user = await User.findOne({ username });
+    const user = await User.findOne({ username: usernameValue });
     if (!user) {
       return res.status(400).json({ error: "ไม่พบผู้ใช้" });
     }
@@ -73,6 +78,9 @@ router.post("/login", async (req, res) => {
     });
   } catch (err) {
     console.error(err);
+    if (err.code === 11000) {
+      return res.status(400).json({ error: "ชื่อผู้ใช้หรืออีเมลนี้ถูกใช้แล้ว" });
+    }
     res.status(500).json({ error: "เกิดข้อผิดพลาดในการเข้าสู่ระบบ" });
   }
 });

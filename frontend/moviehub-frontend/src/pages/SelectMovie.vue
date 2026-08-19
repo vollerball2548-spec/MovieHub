@@ -38,7 +38,7 @@
         />
         <div class="p-4">
           <h2 class="truncate text-sm font-bold sm:text-base">{{ movie.title }}</h2>
-          <p class="mt-2 text-xs text-slate-400"><span class="text-orange">★</span> {{ movie.vote_average?.toFixed(1) || "กำลังฉาย" }}
+          <p class="mt-2 text-xs text-slate-400"><span class="text-orange">●</span> {{ movie.genre || "Now showing" }} <span v-if="movie.year">· {{ movie.year }}</span>
           </p>
         </div>
       </div>
@@ -53,41 +53,36 @@ import axios from "axios";
 
 const router = useRouter();
 
-// ✅ ใช้ TMDB API จาก .env
-const tmdb = axios.create({
-  baseURL: "https://api.themoviedb.org/3",
-  params: {
-    api_key: import.meta.env.VITE_TMDB_API_KEY,
-    language: "th-TH",
-  },
-});
-
 const fallbackMovies = [
-  { id: "fallback-1", title: "The Last Horizon", overview: "การเดินทางครั้งสุดท้ายที่จะเปลี่ยนทุกอย่าง", poster_path: "", vote_average: 8.4 },
-  { id: "fallback-2", title: "Midnight Signal", overview: "สัญญาณลึกลับในคืนที่ไม่มีใครหลับ", poster_path: "", vote_average: 8.1 },
-  { id: "fallback-3", title: "Ocean Between Us", overview: "เรื่องราวของคนสองคนที่กลับมาพบกัน", poster_path: "", vote_average: 7.9 },
-  { id: "fallback-4", title: "Neon Runner", overview: "ภารกิจไล่ล่าท่ามกลางเมืองที่ไม่เคยหลับ", poster_path: "", vote_average: 8.0 },
-  { id: "fallback-5", title: "The Quiet Room", overview: "ความลับที่ซ่อนอยู่ในห้องปิดตาย", poster_path: "", vote_average: 7.7 },
+  { id: "fallback-1", title: "The Last Horizon", overview: "การเดินทางครั้งสุดท้ายที่จะเปลี่ยนทุกอย่าง", poster_path: "", genre: "Adventure", year: 2026 },
+  { id: "fallback-2", title: "Midnight Signal", overview: "สัญญาณลึกลับในคืนที่ไม่มีใครหลับ", poster_path: "", genre: "Thriller", year: 2026 },
+  { id: "fallback-3", title: "Ocean Between Us", overview: "เรื่องราวของคนสองคนที่กลับมาพบกัน", poster_path: "", genre: "Drama", year: 2026 },
+  { id: "fallback-4", title: "Neon Runner", overview: "ภารกิจไล่ล่าท่ามกลางเมืองที่ไม่เคยหลับ", poster_path: "", genre: "Action", year: 2026 },
+  { id: "fallback-5", title: "The Quiet Room", overview: "ความลับที่ซ่อนอยู่ในห้องปิดตาย", poster_path: "", genre: "Mystery", year: 2026 },
 ];
 const movies = ref([]);
 const loading = ref(true);
 const error = ref("");
 
-const getPoster = (path) =>
-  path
+const getPoster = (path, title = "MovieHub") =>
+  path?.startsWith("http")
+    ? path
+    : path
     ? `https://image.tmdb.org/t/p/w500${path}`
-    : `https://placehold.co/500x750/17202c/f97316?text=${encodeURIComponent("MovieHub")}`;
+    : `https://placehold.co/500x750/17202c/f97316?text=${encodeURIComponent(title)}`;
 
 const loadMovies = async () => {
   loading.value = true;
   error.value = "";
   try {
-    if (!import.meta.env.VITE_TMDB_API_KEY) {
-      movies.value = fallbackMovies;
-      return;
-    }
-    const res = await tmdb.get("/movie/now_playing");
-    movies.value = res.data.results || [];
+    const res = await axios.get("/movies");
+    movies.value = (res.data || []).map((movie) => ({
+      ...movie,
+      id: movie._id,
+      poster_path: movie.poster,
+      overview: movie.description,
+    }));
+    if (movies.value.length === 0) movies.value = fallbackMovies;
   } catch (err) {
     movies.value = fallbackMovies;
     error.value = "แสดงรายการแนะนำชั่วคราว เนื่องจากเชื่อมต่อ TMDB ไม่ได้";

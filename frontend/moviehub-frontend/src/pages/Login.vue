@@ -25,8 +25,8 @@
           />
         </div>
 
-        <button class="bg-orange w-full py-2 rounded-lg font-semibold hover:bg-orange-600 transition">
-          เข้าสู่ระบบ
+        <button :disabled="loading" class="bg-orange w-full py-2 rounded-lg font-semibold hover:bg-orange/90 disabled:opacity-60 transition">
+          {{ loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ" }}
         </button>
       </form>
 
@@ -43,18 +43,22 @@
 <script setup>
 import { ref } from "vue";
 import axios from "axios";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import logo from "../assets/logo.png"; // ✅ เพิ่มโลโก้
 
 const router = useRouter();
+const route = useRoute();
 const username = ref("");
 const password = ref("");
 const error = ref("");
+const loading = ref(false);
 
 const login = async () => {
+  error.value = "";
+  loading.value = true;
   try {
     const res = await axios.post("/auth/login", {
-      username: username.value,
+      username: username.value.trim(),
       password: password.value,
     });
 
@@ -62,9 +66,11 @@ const login = async () => {
     localStorage.setItem("username", res.data.username);
     axios.defaults.headers.common["Authorization"] = `Bearer ${res.data.token}`;
 
-    router.push("/");
+    router.push(route.query.redirect || "/");
   } catch (err) {
     error.value = err.response?.data?.error || "เกิดข้อผิดพลาด";
+  } finally {
+    loading.value = false;
   }
 };
 </script>
