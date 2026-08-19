@@ -1,20 +1,22 @@
 <script setup>
-import { ref, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import { ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import logo from "../assets/logo.png"; // ✅ ใช้ relative path แบบนี้แทน "@/assets/..."
 
 const router = useRouter();
+const route = useRoute();
 const isLoggedIn = ref(false);
 const username = ref("");
 
-onMounted(() => {
+const refreshUser = () => {
   const token = localStorage.getItem("token");
   const user = localStorage.getItem("username");
-  if (token) {
-    isLoggedIn.value = true;
-    username.value = user || "ผู้ใช้";
-  }
-});
+  isLoggedIn.value = Boolean(token);
+  username.value = user || "ผู้ใช้";
+};
+
+refreshUser();
+watch(() => route.fullPath, refreshUser);
 
 const logout = () => {
   localStorage.removeItem("token");
@@ -42,6 +44,7 @@ const logout = () => {
 
         <template v-else>
           <span class="hidden text-slate-400 md:block">สวัสดี, {{ username }}</span>
+          <router-link to="/profile" class="rounded-lg border border-white/10 px-3 py-2 transition hover:border-orange hover:text-orange">โปรไฟล์</router-link>
           <button @click="logout" class="text-orange transition hover:text-orange-300">ออกจากระบบ</button>
         </template>
       </div>

@@ -80,9 +80,13 @@ const confirmPayment = async () => {
       path: "/ticket",
       query: {
         movie: booking.value.movieTitle,
+        cinema: booking.value.cinema,
+        date: booking.value.date,
         time: booking.value.time,
         seats: booking.value.seats.join(", "),
+        total: booking.value.totalPrice,
         qr: res.data.booking.qrCode,
+        bookingId: res.data.booking._id,
       },
     });
   } catch (err) {

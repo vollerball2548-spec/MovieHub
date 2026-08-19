@@ -64,6 +64,7 @@ const login = async () => {
 
     localStorage.setItem("token", res.data.token);
     localStorage.setItem("username", res.data.username);
+    localStorage.setItem("email", res.data.email || "");
     axios.defaults.headers.common["Authorization"] = `Bearer ${res.data.token}`;
 
     router.push(route.query.redirect || "/");

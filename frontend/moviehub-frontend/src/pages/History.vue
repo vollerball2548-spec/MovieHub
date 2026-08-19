@@ -1,6 +1,6 @@
 <template>
-  <div class="p-6 bg-dark min-h-screen text-white">
-    <h1 class="text-3xl font-bold text-orange mb-6 text-center">🎟️ ประวัติการจอง</h1>
+  <div class="page-shell min-h-screen text-white">
+    <h1 class="text-3xl font-black text-orange mb-6">ประวัติการซื้อบัตร</h1>
 
     <!-- กำลังโหลด -->
     <div v-if="loading" class="text-gray-400 text-center">กำลังโหลดข้อมูล...</div>
@@ -15,7 +15,7 @@
       <div
         v-for="(item, i) in bookings"
         :key="i"
-        class="bg-zinc-900 p-5 rounded-xl shadow-lg border border-gray-800 hover:border-orange transition"
+        class="surface rounded-2xl p-5 transition hover:border-orange"
       >
         <img
           :src="item.qrCode"
@@ -25,12 +25,7 @@
         <h2 class="text-lg font-semibold text-orange text-center mb-2">
           {{ item.movieTitle }}
         </h2>
-        <p class="text-sm text-gray-300 text-center">🎬 ที่นั่ง: {{ item.seats.join(", ") }}</p>
-        <p class="text-sm text-gray-400 text-center">🕒 เวลา: {{ item.time }}</p>
-        <p class="text-sm text-gray-400 text-center">💰 ราคา: {{ item.totalPrice }} บาท</p>
-        <p class="text-xs text-gray-500 text-center mt-1">
-          📅 {{ formatDate(item.createdAt) }}
-        </p>
+        <div class="space-y-2 text-sm text-slate-300"><p>โรงภาพยนตร์: <strong>{{ item.cinema || "ไม่ระบุ" }}</strong></p><p>วันและรอบฉาย: <strong>{{ item.date }} · {{ item.time }}</strong></p><p>ที่นั่ง: <strong>{{ item.seats.join(", ") }}</strong></p><p class="pt-2 text-lg font-bold text-orange">ยอดชำระ {{ item.totalPrice }} บาท</p><p class="text-xs text-slate-500">ซื้อเมื่อ {{ formatDate(item.createdAt) }}</p></div>
       </div>
     </div>
   </div>

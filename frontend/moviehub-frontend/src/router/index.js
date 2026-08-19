@@ -11,6 +11,8 @@ import SelectSeat from "../pages/SelectSeat.vue";
 import Payment from "../pages/Payment.vue";
 import Ticket from "../pages/Ticket.vue";
 import History from "../pages/History.vue";
+import Profile from "../pages/Profile.vue";
+import MovieProfile from "../pages/MovieProfile.vue";
 
 const routes = [
   // ✅ หน้าแรกแสดงหนังเลย (เหมือน SF)
@@ -40,6 +42,18 @@ const routes = [
     path: "/register",
     name: "Register",
     component: Register,
+    meta: { requiresAuth: false },
+  },
+  {
+    path: "/profile",
+    name: "Profile",
+    component: Profile,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/movie-profile",
+    name: "MovieProfile",
+    component: MovieProfile,
     meta: { requiresAuth: false },
   },
 

@@ -96,7 +96,7 @@ onMounted(loadMovies);
 // ✅ เมื่อเลือกหนัง → ไปหน้าเลือกโรงก่อน
 const selectMovie = (movie) => {
   router.push({
-    path: "/select-cinema",
+    path: "/movie-profile",
     query: { movie: encodeURIComponent(JSON.stringify(movie)) },
   });
 };
