@@ -36,6 +36,9 @@ router.post("/register", async (req, res) => {
     res.json({ message: "สมัครสมาชิกสำเร็จ!" });
   } catch (err) {
     console.error(err);
+    if (err.code === 11000) {
+      return res.status(400).json({ error: "ชื่อผู้ใช้หรืออีเมลนี้ถูกใช้แล้ว" });
+    }
     res.status(500).json({ error: "ไม่สามารถสมัครสมาชิกได้" });
   }
 });
@@ -78,9 +81,6 @@ router.post("/login", async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    if (err.code === 11000) {
-      return res.status(400).json({ error: "ชื่อผู้ใช้หรืออีเมลนี้ถูกใช้แล้ว" });
-    }
     res.status(500).json({ error: "เกิดข้อผิดพลาดในการเข้าสู่ระบบ" });
   }
 });
