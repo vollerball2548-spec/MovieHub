@@ -1,0 +1,13 @@
+# Dependencies and build output
+**/node_modules/
+**/dist/
+
+# Environment secrets
+**/.env
+**/.env.*
+!**/.env.example
+
+# Local tooling
+.vscode/
+.DS_Store
+*.log

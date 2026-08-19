@@ -1,0 +1,12 @@
+export default {
+  content: ["./index.html", "./src/**/*.{vue,js,ts,jsx,tsx}"],
+  theme: {
+    extend: {
+      colors: {
+        dark: "#121212",
+        orange: "#ff6600",
+      },
+    },
+  },
+  plugins: [],
+};
