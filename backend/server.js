@@ -44,8 +44,7 @@ mongoose.connection.on("error", (err) => {
   console.error("❌ MongoDB connection error:", err.message);
 });
 mongoose.connection.on("disconnected", () => {
-  console.log("⚠️ MongoDB disconnected! พยายามเชื่อมใหม่...");
-  connectDB(); // พยายามเชื่อมใหม่อัตโนมัติ
+  console.log("⚠️ MongoDB disconnected. API ยังเปิดอยู่ แต่ฟังก์ชันที่ใช้ฐานข้อมูลจะรอการเชื่อมต่อ");
 });
 
 // ✅ Error handler กลาง (จับทุก Error ที่ Express เจอ)
