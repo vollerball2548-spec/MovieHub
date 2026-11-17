@@ -21,6 +21,7 @@
           <input
             v-model="password"
             type="password"
+            autocomplete="current-password"
             class="w-full p-2 rounded bg-gray-800 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-orange"
           />
         </div>
@@ -45,6 +46,7 @@ import { ref } from "vue";
 import axios from "axios";
 import { useRoute, useRouter } from "vue-router";
 import logo from "../assets/logo.png"; // ✅ เพิ่มโลโก้
+import { setAccessToken } from "../utils/auth";
 
 const router = useRouter();
 const route = useRoute();
@@ -62,14 +64,13 @@ const login = async () => {
       password: password.value,
     });
 
-    localStorage.setItem("token", res.data.token);
+    setAccessToken(res.data.token);
     localStorage.setItem("username", res.data.username);
     localStorage.setItem("email", res.data.email || "");
-    axios.defaults.headers.common["Authorization"] = `Bearer ${res.data.token}`;
 
     router.push(route.query.redirect || "/");
   } catch (err) {
-    error.value = err.response?.data?.error || "เกิดข้อผิดพลาด";
+    error.value = err.response?.data?.error?.message || err.response?.data?.error || "เกิดข้อผิดพลาด";
   } finally {
     loading.value = false;
   }

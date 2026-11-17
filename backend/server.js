@@ -1,68 +1,90 @@
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
-import mongoose from "mongoose";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { config } from "./config/env.js";
+import { getPrismaClient, disconnectPrisma } from "./infrastructure/database/prisma.js";
+import authRoutes from "./modules/auth/auth.routes.js";
+import catalogRoutes from "./modules/catalog/catalog.routes.js";
+import bookingRoutes from "./modules/booking/booking.routes.js";
+import cinemaRoutes from "./modules/cinema/cinema.routes.js";
+import showtimeRoutes from "./modules/scheduling/scheduling.routes.js";
+import paymentRoutes from "./modules/payment/payment.routes.js";
+import ticketRoutes from "./modules/ticket/ticket.routes.js";
+import purchaseRoutes from "./modules/movie-purchase/purchase.routes.js";
+import movieVideoRoutes from "./modules/movie-purchase/video.routes.js";
+import healthRoutes from "./modules/health/health.routes.js";
+import { errorHandler, notFoundHandler } from "./shared/middleware/error-handler.js";
+import { securityHeaders } from "./shared/middleware/security-headers.js";
+import { rateLimit } from "./shared/middleware/rate-limit.js";
+import { parseCookies } from "./shared/middleware/cookies.js";
+import { requestContext } from "./shared/middleware/request-context.js";
+import { requestLogger } from "./shared/middleware/request-logger.js";
+import { logger } from "./shared/logger.js";
 
-// ✅ Routes และการเชื่อมต่อ
-import connectDB from "./config/db.js";
-import authRoutes from "./routes/auth.js";
-import movieRoutes from "./routes/movies.js";
-import bookingRoutes from "./routes/bookings.js";
+export const app = express();
 
-dotenv.config();
-
-// ✅ เชื่อมต่อ MongoDB
-connectDB();
-
-const app = express();
-
-// ✅ Middleware พื้นฐาน
+app.disable("x-powered-by");
+app.use(requestContext);
+app.use(requestLogger);
+app.use(securityHeaders);
 app.use(
   cors({
-    origin: (origin, callback) => {
-      const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:5173,http://127.0.0.1:5173")
-        .split(",")
-        .map((value) => value.trim());
-
-      if (!origin || allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      return callback(new Error("Origin ไม่ได้รับอนุญาต"));
+    origin(origin, callback) {
+      if (!origin || config.frontendOrigins.includes(origin)) return callback(null, true);
+      return callback(null, false);
     },
     credentials: true,
   })
 );
+app.use(express.json({ limit: "1mb", verify(req, res, buffer) {
+  if (req.originalUrl.includes("/payments/webhooks/stripe")) req.rawBody = Buffer.from(buffer);
+} }));
+app.use(parseCookies);
+app.use("/api", rateLimit({ windowMs: 60_000, max: 120 }));
 
-app.use(express.json()); // ให้ Express อ่าน JSON จาก body ได้
+app.use("/health", healthRoutes);
+app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/movies", catalogRoutes);
+app.use("/api/v1/bookings", bookingRoutes);
+app.use("/api/v1/cinemas", cinemaRoutes);
+app.use("/api/v1/showtimes", showtimeRoutes);
+app.use("/api/v1/payments", paymentRoutes);
+app.use("/api/v1/tickets", ticketRoutes);
+app.use("/api/v1/movie-purchases", purchaseRoutes);
+app.use("/api/v1/movies", movieVideoRoutes);
 
-// ✅ Routes หลักของระบบ
-app.use("/api/auth", authRoutes);        // สมัคร / ล็อกอิน
-app.use("/api/movies", movieRoutes);     // ข้อมูลหนังจาก TMDB
-app.use("/api/bookings", bookingRoutes); // จองตั๋ว / ดูประวัติ
+// Temporary compatibility mounts; remove after frontend migration.
+app.use("/api/auth", authRoutes);
+app.use("/api/movies", catalogRoutes);
+app.use("/api/bookings", bookingRoutes);
+app.use("/api/cinemas", cinemaRoutes);
+app.use("/api/showtimes", showtimeRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api/tickets", ticketRoutes);
+app.use("/api/movie-purchases", purchaseRoutes);
+app.use("/api/movies", movieVideoRoutes);
 
-// ✅ Route ตรวจสอบสถานะ API
-app.get("/", (req, res) => {
-  res.json({ status: "ok", service: "MovieHub API" });
-});
+app.use(notFoundHandler);
+app.use(errorHandler);
 
-// ✅ ตรวจสอบสถานะการเชื่อม MongoDB
-mongoose.connection.on("connected", () => {
-  console.log("✅ MongoDB connected successfully!");
-});
-mongoose.connection.on("error", (err) => {
-  console.error("❌ MongoDB connection error:", err.message);
-});
-mongoose.connection.on("disconnected", () => {
-  console.log("⚠️ MongoDB disconnected. API ยังเปิดอยู่ แต่ฟังก์ชันที่ใช้ฐานข้อมูลจะรอการเชื่อมต่อ");
-});
+export async function startServer() {
+  const prisma = getPrismaClient();
+  await prisma.$connect();
+  const server = app.listen(config.port, () => logger.info("MovieHub API listening", { port: config.port }));
+  const reservationCleanup = setInterval(() => {
+    import("./modules/booking/booking.service.js").then(({ expirePendingReservations }) => expirePendingReservations())
+      .catch((error) => logger.error("Reservation cleanup failed", { error: error.message }));
+  }, 60_000);
+  reservationCleanup.unref();
+  server.on("close", () => clearInterval(reservationCleanup));
+  server.on("close", () => disconnectPrisma().catch((error) => logger.error("Database disconnect failed", { error: error.message })));
+  return server;
+}
 
-// ✅ Error handler กลาง (จับทุก Error ที่ Express เจอ)
-app.use((err, req, res, next) => {
-  console.error("❌ Server Error:", err.stack);
-  res.status(500).json({ error: "เกิดข้อผิดพลาดในเซิร์ฟเวอร์" });
-});
-
-// ✅ เริ่มรันเซิร์ฟเวอร์
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🎬 Server running on port ${PORT}`));
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  startServer().catch((error) => {
+    logger.error("Server startup failed", { error: error.message });
+    process.exitCode = 1;
+  });
+}

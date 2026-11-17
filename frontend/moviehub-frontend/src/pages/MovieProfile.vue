@@ -2,7 +2,7 @@
   <div class="page-shell min-h-screen text-white">
     <div v-if="movie" class="surface overflow-hidden rounded-3xl">
       <div class="grid lg:grid-cols-[280px_1fr]">
-        <img :src="posterUrl" :alt="movie.title" class="h-full min-h-[380px] w-full object-cover" />
+        <img :src="posterUrl" :alt="movie.title" @error="onPosterError" class="h-full min-h-[380px] w-full object-cover" />
         <div class="p-6 sm:p-10">
           <p class="text-sm font-bold uppercase tracking-[0.25em] text-orange">MOVIE PROFILE</p>
           <h1 class="mt-3 text-4xl font-black sm:text-5xl">{{ movie.title }}</h1>
@@ -18,6 +18,7 @@
 <script setup>
 import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { createPosterFallback } from "../utils/poster.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -32,8 +33,13 @@ const posterUrl = computed(() => {
   const poster = movie?.poster_path || movie?.poster;
   if (poster?.startsWith("http")) return poster;
   if (poster) return `https://image.tmdb.org/t/p/w500${poster}`;
-  return `https://placehold.co/500x750/17202c/f97316?text=${encodeURIComponent(movie?.title || "MovieHub")}`;
+  return createPosterFallback(movie?.title, movie?.genre);
 });
+
+const onPosterError = (event) => {
+  event.target.onerror = null;
+  event.target.src = createPosterFallback(movie?.title, movie?.genre);
+};
 
 const startBooking = () => router.push({ path: "/select-cinema", query: { movie: encodeURIComponent(JSON.stringify(movie)) } });
 </script>

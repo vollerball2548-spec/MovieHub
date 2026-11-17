@@ -4,11 +4,11 @@
       <div>
         <p class="mb-3 text-sm font-bold uppercase tracking-[0.3em] text-orange">MovieHub cinema</p>
         <h1 class="max-w-2xl text-4xl font-black leading-tight sm:text-6xl">ค่ำคืนที่ดี เริ่มจากหนังเรื่องโปรด</h1>
-        <p class="mt-4 max-w-xl text-base leading-7 text-slate-300">เลือกหนัง เลือกรอบ และจองที่นั่งที่ใช่ได้ในไม่กี่ขั้นตอน</p>
+        <p class="mt-4 max-w-xl text-base leading-7 text-slate-300">เช่าดูภาพยนตร์เรื่องละ 50 บาท ส่งสลิปให้แอดมินตรวจ แล้วรับชมผ่านเว็บไซต์</p>
       </div>
       <div class="hidden text-right lg:block"><p class="text-5xl font-black text-orange">01</p><p class="text-sm text-slate-400">เลือกภาพยนตร์</p></div>
     </section>
-    <div class="mb-5 flex items-end justify-between gap-4"><div><p class="text-sm text-slate-400">NOW SHOWING</p><h2 class="mt-1 text-2xl font-bold sm:text-3xl">ภาพยนตร์กำลังฉาย</h2></div><span v-if="!loading" class="text-sm text-slate-500">{{ movies.length }} เรื่อง</span></div>
+    <div class="mb-5 flex items-end justify-between gap-4"><div><p class="text-sm text-slate-400">WATCH ONLINE</p><h2 class="mt-1 text-2xl font-bold sm:text-3xl">เลือกเรื่องเพื่อเช่าดู</h2></div><span v-if="!loading" class="text-sm text-slate-500">{{ movies.filter(m=>m.availableForPurchase).length }} เรื่องพร้อมดู · {{ movies.length }} เรื่องในรายการ</span></div>
 
     <!-- Loading -->
     <div v-if="loading" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
@@ -32,14 +32,16 @@
         class="group cursor-pointer overflow-hidden rounded-2xl border border-white/10 bg-white/[0.06] shadow-lg transition hover:-translate-y-1 hover:border-orange/60"
       >
         <img
-          :src="getPoster(movie.poster_path)"
+          :src="getPoster(movie.poster_path, movie.title, movie.genre)"
           :alt="movie.title"
+          @error="onPosterError($event, movie)"
           class="h-64 w-full object-cover transition duration-500 group-hover:scale-105 sm:h-80"
         />
         <div class="p-4">
           <h2 class="truncate text-sm font-bold sm:text-base">{{ movie.title }}</h2>
           <p class="mt-2 text-xs text-slate-400"><span class="text-orange">●</span> {{ movie.genre || "Now showing" }} <span v-if="movie.year">· {{ movie.year }}</span>
           </p>
+          <p class="mt-3 text-xs font-semibold" :class="movie.availableForPurchase ? 'text-emerald-300' : 'text-amber-300'">{{ movie.availableForPurchase ? 'พร้อมเช่าดู · 50 บาท' : 'กำลังเตรียมวิดีโอ' }}</p>
         </div>
       </div>
     </div>
@@ -50,42 +52,42 @@
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import axios from "axios";
+import { createPosterFallback } from "../utils/poster.js";
 
 const router = useRouter();
 
-const fallbackMovies = [
-  { id: "fallback-1", title: "The Last Horizon", overview: "การเดินทางครั้งสุดท้ายที่จะเปลี่ยนทุกอย่าง", poster_path: "", genre: "Adventure", year: 2026 },
-  { id: "fallback-2", title: "Midnight Signal", overview: "สัญญาณลึกลับในคืนที่ไม่มีใครหลับ", poster_path: "", genre: "Thriller", year: 2026 },
-  { id: "fallback-3", title: "Ocean Between Us", overview: "เรื่องราวของคนสองคนที่กลับมาพบกัน", poster_path: "", genre: "Drama", year: 2026 },
-  { id: "fallback-4", title: "Neon Runner", overview: "ภารกิจไล่ล่าท่ามกลางเมืองที่ไม่เคยหลับ", poster_path: "", genre: "Action", year: 2026 },
-  { id: "fallback-5", title: "The Quiet Room", overview: "ความลับที่ซ่อนอยู่ในห้องปิดตาย", poster_path: "", genre: "Mystery", year: 2026 },
-];
 const movies = ref([]);
 const loading = ref(true);
 const error = ref("");
 
-const getPoster = (path, title = "MovieHub") =>
+const getPoster = (path, title = "MovieHub", genre = "MOVIE") =>
   path?.startsWith("http")
     ? path
     : path
     ? `https://image.tmdb.org/t/p/w500${path}`
-    : `https://placehold.co/500x750/17202c/f97316?text=${encodeURIComponent(title)}`;
+    : createPosterFallback(title, genre);
+
+const onPosterError = (event, movie) => {
+  event.target.onerror = null;
+  event.target.src = createPosterFallback(movie.title, movie.genre);
+};
 
 const loadMovies = async () => {
   loading.value = true;
   error.value = "";
   try {
     const res = await axios.get("/movies");
-    movies.value = (res.data || []).map((movie) => ({
+    const rows = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+    movies.value = rows.map((movie) => ({
       ...movie,
-      id: movie._id,
-      poster_path: movie.poster,
+      id: movie._id || movie.id,
+      poster_path: movie.poster || movie.posterUrl,
       overview: movie.description,
     }));
-    if (movies.value.length === 0) movies.value = fallbackMovies;
+    if (movies.value.length === 0) error.value = "ยังไม่มีภาพยนตร์ในระบบ กรุณาติดต่อผู้ดูแล";
   } catch (err) {
-    movies.value = fallbackMovies;
-    error.value = "แสดงรายการแนะนำชั่วคราว เนื่องจากเชื่อมต่อ TMDB ไม่ได้";
+    movies.value = [];
+    error.value = err.response?.data?.error?.message || "เชื่อมต่อระบบรายการหนังไม่ได้";
   } finally {
     loading.value = false;
   }
@@ -96,8 +98,8 @@ onMounted(loadMovies);
 // ✅ เมื่อเลือกหนัง → ไปหน้าเลือกโรงก่อน
 const selectMovie = (movie) => {
   router.push({
-    path: "/movie-profile",
-    query: { movie: encodeURIComponent(JSON.stringify(movie)) },
+    path: "/movie-access",
+    query: { movieId: movie.id },
   });
 };
 </script>

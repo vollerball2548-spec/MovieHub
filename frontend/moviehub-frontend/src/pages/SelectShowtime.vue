@@ -1,132 +1,77 @@
 <template>
-  <div class="min-h-screen bg-dark text-white p-6">
-    <!-- กล่องแสดงข้อมูลหนัง -->
-    <div
-      class="flex flex-col md:flex-row items-center md:items-start gap-6 max-w-4xl mx-auto bg-zinc-900 p-6 rounded-2xl shadow-lg"
-    >
-      <img
-        :src="posterUrl"
-        alt="Poster"
-        class="w-64 rounded-lg shadow-lg"
-      />
-
-      <div class="flex-1">
-        <h1 class="text-3xl font-bold text-orange mb-2">{{ movie.title }}</h1>
-        <p class="text-gray-400 mb-2 italic">โรงภาพยนตร์: {{ cinema }}</p>
-        <p class="text-gray-400 mb-4">{{ movie.overview || "ไม่มีข้อมูลเรื่องย่อ" }}</p>
-
-        <!-- เลือกวัน -->
-        <h2 class="text-xl font-semibold text-orange mb-2">📅 เลือกวันฉาย</h2>
-        <div class="flex flex-wrap gap-3 mb-4">
-          <button
-            v-for="(day, i) in days"
-            :key="i"
-            @click="selectedDay = day"
-            :class="[
-              'px-4 py-2 rounded-lg transition font-medium',
-              selectedDay === day
-                ? 'bg-orange text-white'
-                : 'bg-gray-800 hover:bg-gray-700'
-            ]"
-          >
-            {{ formatDay(day) }}
-          </button>
-        </div>
-
-        <!-- เลือกเวลา -->
-        <h2 class="text-xl font-semibold text-orange mb-2">🕒 เลือกรอบฉาย</h2>
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-          <button
-            v-for="time in showtimes"
-            :key="time"
-            @click="selectShowtime(time)"
-            class="bg-gray-800 hover:bg-orange hover:text-white py-2 rounded-lg transition font-medium"
-          >
-            {{ time }}
-          </button>
-        </div>
+  <main class="page-shell min-h-screen p-6 text-white">
+    <section class="surface mx-auto max-w-4xl rounded-3xl p-6">
+      <div class="flex items-center gap-4">
+        <img :src="poster" :alt="movie.title" @error="onPosterError" class="h-24 w-16 rounded-lg object-cover" />
+        <div><h1 class="text-3xl font-bold text-orange">เลือกรอบฉาย</h1><p class="mt-2">{{ movie.title }} · {{ cinema.name }}</p></div>
       </div>
-    </div>
-  </div>
+      <div class="mt-7 flex flex-wrap gap-2">
+        <button v-for="day in days" :key="day.value" @click="date=day.value;load()" :class="['rounded-lg px-4 py-2',date===day.value?'bg-orange text-white':'bg-white/10 hover:bg-white/20']">{{ day.label }}</button>
+      </div>
+      <p v-if="error" class="mt-4 text-rose-300">{{ error }}</p>
+      <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <button v-for="item in showtimes" :key="item.id" class="rounded-xl bg-white/10 p-4 hover:bg-orange" @click="router.push({path:'/select-seat',query:{showtimeId:item.id}})">
+          {{ new Date(item.startsAt).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Bangkok'}) }}
+          <small class="mt-1 block">{{ Number(item.basePrice) }} บาท</small>
+        </button>
+      </div>
+      <p v-if="!showtimes.length && !error" class="mt-4 text-slate-400">วันนี้ไม่มีรอบฉาย ลองเลือกวันอื่น</p>
+    </section>
+  </main>
 </template>
-
 <script setup>
 import { ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import axios from "axios";
+import { createPosterFallback } from "../utils/poster.js";
 
 const route = useRoute();
 const router = useRouter();
+const showtimes = ref([]);
+const error = ref("");
+const bangkokToday = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+const days = Array.from({ length: 7 }, (_, index) => {
+  const date = new Date(`${bangkokToday}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + index);
+  const value = date.toISOString().slice(0, 10);
+  return { value, label: index === 0 ? "วันนี้" : new Intl.DateTimeFormat("th-TH", { timeZone: "Asia/Bangkok", weekday: "short", day: "numeric", month: "short" }).format(date) };
+});
+const date = ref(days[0].value);
+const movie = ref({ id: route.query.movieId, title: "ภาพยนตร์", genre: "MOVIE" });
+const cinema = ref({ id: route.query.cinemaId, name: "โรงภาพยนตร์" });
+const poster = ref(createPosterFallback(movie.value.title, movie.value.genre));
 
-const movie = ref({});
-const posterUrl = ref("");
-const cinema = ref(""); // ✅ เพิ่มชื่อโรงหนัง
-const days = ref([]);
-const selectedDay = ref("");
-const showtimes = ref(["11:30", "14:00", "17:00", "20:30"]);
+async function load() {
+  try {
+    error.value = "";
+    const { data } = await axios.get("/showtimes", { params: { movieId: movie.value.id, cinemaId: cinema.value.id, date: date.value } });
+    showtimes.value = data.data || data;
+  } catch (e) {
+    error.value = e.response?.data?.error?.message || "โหลดรอบฉายไม่สำเร็จ";
+    showtimes.value = [];
+  }
+}
 
-onMounted(() => {
-  // ✅ ดึงข้อมูลจาก query
-  const movieData = route.query.movie
-    ? JSON.parse(decodeURIComponent(route.query.movie))
-    : null;
-  if (!movieData) {
-    router.push("/"); // ถ้าไม่มีข้อมูลให้กลับหน้าแรก
+function onPosterError(event) {
+  event.target.onerror = null;
+  event.target.src = createPosterFallback(movie.value.title, movie.value.genre);
+}
+
+onMounted(async () => {
+  if (!movie.value.id || !cinema.value.id) { router.replace("/"); return; }
+  try {
+    const [movieResponse, cinemaResponse] = await Promise.all([
+      axios.get(`/movies/${movie.value.id}`), axios.get(`/cinemas/${cinema.value.id}`),
+    ]);
+    const movieData = movieResponse.data.data || movieResponse.data;
+    movie.value = { ...movieData, id: movieData.id || movieData._id, genre: movieData.genre || "MOVIE" };
+    const cinemaData = cinemaResponse.data.data || cinemaResponse.data;
+    cinema.value = { ...cinemaData, id: cinemaData.id || cinemaData._id };
+    poster.value = movieData.poster || movieData.posterUrl || createPosterFallback(movie.value.title, movie.value.genre);
+  } catch {
+    error.value = "โหลดข้อมูลภาพยนตร์หรือโรงภาพยนตร์ไม่สำเร็จ";
     return;
   }
-
-  movie.value = movieData;
-  cinema.value = route.query.cinema || "ไม่ระบุโรงภาพยนตร์";
-
-  const poster = movie.value.poster_path || movie.value.poster;
-  posterUrl.value = poster?.startsWith("http")
-    ? poster
-    : poster
-    ? `https://image.tmdb.org/t/p/w500${poster}`
-    : `https://placehold.co/500x750/17202c/f97316?text=${encodeURIComponent(movie.value.title || "MovieHub")}`;
-
-  const selectedCinema = movie.value.showtimes?.find((item) => item.cinema === cinema.value);
-  showtimes.value = selectedCinema?.times || ["11:30", "14:00", "17:00", "20:30"];
-
-  // ✅ สร้างวันที่ให้เลือก (วันนี้, พรุ่งนี้, มะรืน)
-  const today = new Date();
-  for (let i = 0; i < 3; i++) {
-    const nextDay = new Date(today);
-    nextDay.setDate(today.getDate() + i);
-    days.value.push(nextDay);
-  }
-  selectedDay.value = days.value[0];
+  await load();
 });
-
-const formatDay = (date) => {
-  return date.toLocaleDateString("th-TH", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
-};
-
-// ✅ เมื่อเลือกเวลา → ไปหน้าเลือกที่นั่ง
-const selectShowtime = (time) => {
-  router.push({
-    path: "/select-seat",
-    query: {
-      movie: movie.value.title,
-      cinema: cinema.value,
-      time,
-      date: formatDay(selectedDay.value),
-    },
-  });
-};
 </script>
-
-<style scoped>
-.bg-dark {
-  background-color: #121212;
-}
-.text-orange {
-  color: #ff6600;
-}
-.bg-orange {
-  background-color: #ff6600;
-}
-</style>

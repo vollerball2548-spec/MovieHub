@@ -1,88 +1,47 @@
 <template>
-  <div class="page-shell min-h-screen text-white">
-    <h1 class="text-3xl font-bold text-orange mb-6 text-center">🏢 เลือกโรงภาพยนตร์</h1>
-
-    <div class="surface mx-auto max-w-4xl rounded-2xl p-6">
-      <!-- แสดงหนัง -->
-      <div class="flex flex-col md:flex-row items-center gap-6 mb-6">
-        <img
-          :src="posterUrl"
-          alt="Poster"
-          class="w-48 rounded-lg shadow-md"
-        />
-        <div>
-          <h2 class="text-2xl font-bold">{{ movie.title }}</h2>
-          <p class="text-gray-400 mt-2">{{ movie.overview || "ไม่มีข้อมูลเรื่องย่อ" }}</p>
-        </div>
+  <main class="page-shell min-h-screen p-6 text-white">
+    <section class="surface mx-auto max-w-3xl rounded-3xl p-6">
+      <div class="flex items-center gap-4">
+        <img :src="poster" :alt="movie.title" @error="onPosterError" class="h-28 w-20 rounded-lg object-cover" />
+        <div><h1 class="text-3xl font-bold text-orange">เลือกโรงภาพยนตร์</h1><p class="mt-2 text-slate-300">{{ movie.title }}</p></div>
       </div>
-
-      <h2 class="text-xl font-semibold text-orange mb-4">🎬 เลือกโรงฉาย</h2>
-      <div class="grid gap-4 sm:grid-cols-2">
-        <button
-          v-for="cinema in cinemas"
-          :key="cinema"
-          @click="selectCinema(cinema)"
-          class="rounded-xl border border-white/10 bg-white/[0.06] px-4 py-4 text-left transition hover:border-orange hover:bg-orange hover:text-white"
-        >
-          {{ cinema }}
+      <p v-if="error" class="mt-4 text-rose-300">{{ error }}</p>
+      <div class="mt-6 grid gap-3 sm:grid-cols-2">
+        <button v-for="cinema in cinemas" :key="cinema.id" class="rounded-xl bg-white/10 p-4 text-left hover:bg-orange" @click="router.push({path:'/select-showtime',query:{movieId:movie.id,cinemaId:cinema.id}})">
+          <b>{{ cinema.name }}</b><p class="text-sm text-slate-300">{{ cinema.address }}</p>
+          <p class="mt-2 text-xs text-slate-400">{{ cinema.screens?.length || 0 }} โรงฉาย</p>
         </button>
       </div>
-    </div>
-  </div>
+      <p v-if="!cinemas.length && !error" class="mt-4 text-slate-400">ยังไม่มีโรงที่มีรอบฉายสำหรับหนังเรื่องนี้</p>
+    </section>
+  </main>
 </template>
-
 <script setup>
 import { ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import axios from "axios";
+import { createPosterFallback } from "../utils/poster.js";
 
 const route = useRoute();
 const router = useRouter();
-
-const movie = ref({});
-const posterUrl = ref("");
 const cinemas = ref([]);
+const error = ref("");
+const movie = ref({});
+const poster = ref("");
+function onPosterError(event) {
+  event.target.onerror = null;
+  event.target.src = createPosterFallback(movie.value.title, movie.value.genre);
+}
 
-onMounted(() => {
-  const movieData = route.query.movie ? JSON.parse(decodeURIComponent(route.query.movie)) : null;
-  if (!movieData) {
-    router.push("/");
-    return;
+onMounted(async () => {
+  try { movie.value = JSON.parse(decodeURIComponent(route.query.movie || "{}")); } catch { movie.value = {}; }
+  if (!movie.value.id) { router.replace("/"); return; }
+  poster.value = movie.value.poster_path || movie.value.poster || createPosterFallback(movie.value.title, movie.value.genre);
+  try {
+    const { data } = await axios.get("/cinemas", { params: { movieId: movie.value.id } });
+    cinemas.value = data.data || data;
+  } catch (e) {
+    error.value = e.response?.data?.error?.message || "โหลดรายชื่อโรงไม่สำเร็จ";
   }
-
-  movie.value = movieData;
-  const poster = movie.value.poster_path || movie.value.poster;
-  posterUrl.value = poster?.startsWith("http")
-    ? poster
-    : poster
-    ? `https://image.tmdb.org/t/p/w500${poster}`
-    : `https://placehold.co/500x750/17202c/f97316?text=${encodeURIComponent(movie.value.title || "MovieHub")}`;
-  cinemas.value = movie.value.showtimes?.map((item) => item.cinema) || [
-    "Major Cineplex รัชโยธิน",
-    "Major Cineplex ปิ่นเกล้า",
-    "Major Cineplex เมกาบางนา",
-    "Major Cineplex พระราม 3",
-  ];
 });
-
-const selectCinema = (cinema) => {
-  router.push({
-    path: "/select-showtime",
-    query: {
-      movie: encodeURIComponent(JSON.stringify(movie.value)),
-      cinema,
-    },
-  });
-};
 </script>
-
-<style scoped>
-.bg-dark {
-  background-color: #121212;
-}
-.text-orange {
-  color: #ff6600;
-}
-.bg-orange {
-  background-color: #ff6600;
-}
-</style>

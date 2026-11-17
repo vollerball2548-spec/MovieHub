@@ -6,6 +6,7 @@
     <div v-if="loading" class="text-gray-400 text-center">กำลังโหลดข้อมูล...</div>
 
     <!-- ไม่มีข้อมูล -->
+    <div v-else-if="error" class="mb-4 rounded-lg border border-red-400/30 bg-red-400/10 p-3 text-red-200">{{ error }}</div>
     <div v-else-if="bookings.length === 0" class="text-center text-gray-500">
       😢 ยังไม่มีประวัติการจอง
     </div>
@@ -39,20 +40,13 @@ const bookings = ref([]);
 const loading = ref(true);
 const error = ref("");
 
-// ✅ ดึง Token จาก localStorage (แนบไปกับ header)
-const token = localStorage.getItem("token");
-
 const fetchHistory = async () => {
   try {
-    const res = await axios.get("/bookings", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const res = await axios.get("/bookings");
     bookings.value = res.data;
   } catch (err) {
     console.error("❌ โหลดข้อมูลไม่สำเร็จ:", err);
-    error.value = err.response?.data?.error || "โหลดประวัติไม่สำเร็จ";
+    error.value = err.response?.data?.error?.message || err.response?.data?.error || "โหลดประวัติไม่สำเร็จ";
   } finally {
     loading.value = false;
   }

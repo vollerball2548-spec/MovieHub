@@ -1,11 +1,14 @@
 # Dependencies and build output
 **/node_modules/
 **/dist/
+backend/generated/prisma/
 
 # Environment secrets
 **/.env
 **/.env.*
 !**/.env.example
+backend/admin-bootstrap.txt
+backend/storage/
 
 # Local tooling
 .vscode/

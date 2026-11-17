@@ -13,6 +13,13 @@ import Ticket from "../pages/Ticket.vue";
 import History from "../pages/History.vue";
 import Profile from "../pages/Profile.vue";
 import MovieProfile from "../pages/MovieProfile.vue";
+import About from "../pages/About.vue";
+import MovieAccess from "../pages/MovieAccess.vue";
+import AdminReview from "../pages/AdminReview.vue";
+import AdminCatalog from "../pages/AdminCatalog.vue";
+import MyMovies from "../pages/MyMovies.vue";
+import axios from "axios";
+import { clearAuth, getAccessToken, isAdmin, setAccessToken } from "../utils/auth";
 
 const routes = [
   // ✅ หน้าแรกแสดงหนังเลย (เหมือน SF)
@@ -56,6 +63,16 @@ const routes = [
     component: MovieProfile,
     meta: { requiresAuth: false },
   },
+  {
+    path: "/about",
+    name: "About",
+    component: About,
+    meta: { requiresAuth: false },
+  },
+  { path: "/movie-access", name: "MovieAccess", component: MovieAccess, meta: { requiresAuth: true } },
+  { path: "/admin/review", name: "AdminReview", component: AdminReview, meta: { requiresAuth: true, requiresAdmin: true } },
+  { path: "/admin/catalog", name: "AdminCatalog", component: AdminCatalog, meta: { requiresAuth: true, requiresAdmin: true } },
+  { path: "/my-movies", name: "MyMovies", component: MyMovies, meta: { requiresAuth: true } },
 
   // ✅ Flow การจอง
   {
@@ -108,18 +125,21 @@ const router = createRouter({
 });
 
 // ✅ Middleware ตรวจ token ก่อนเข้าเพจที่ล็อกไว้
-router.beforeEach((to, from, next) => {
-  const token = localStorage.getItem("token");
-
-  if (to.meta.requiresAuth && !token) {
-    // ถ้ายังไม่ได้ล็อกอิน แต่พยายามเข้าเพจที่ต้องใช้ token
-    next({ path: "/login", query: { redirect: to.fullPath } });
-  } else if ((to.path === "/login" || to.path === "/register") && token) {
-    // ถ้ามี token แล้ว แต่พยายามเข้าหน้า login/register ให้กลับหน้าแรก
-    next("/");
-  } else {
-    next();
+router.beforeEach(async (to) => {
+  let authenticated = Boolean(getAccessToken());
+  if (!authenticated) {
+    try {
+      const { data } = await axios.post("/auth/refresh");
+      setAccessToken(data.token);
+      authenticated = true;
+    } catch {
+      clearAuth();
+    }
   }
+  if (to.meta.requiresAuth && !authenticated) return { path: "/login", query: { redirect: to.fullPath } };
+  if (to.meta.requiresAdmin && !isAdmin()) return "/";
+  if ((to.path === "/login" || to.path === "/register") && authenticated) return "/";
+  return true;
 });
 
 export default router;

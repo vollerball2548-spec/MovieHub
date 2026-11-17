@@ -30,6 +30,9 @@
           <input
             v-model="password"
             type="password"
+            minlength="8"
+            maxlength="128"
+            autocomplete="new-password"
             class="w-full p-2 rounded bg-gray-800 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-orange"
           />
         </div>
@@ -77,7 +80,7 @@ const register = async () => {
     message.value = res.data.message;
     setTimeout(() => router.push("/login"), 1000);
   } catch (err) {
-    error.value = err.response?.data?.error || "ไม่สามารถสมัครได้";
+    error.value = err.response?.data?.error?.message || err.response?.data?.error || "ไม่สามารถสมัครได้";
   } finally {
     loading.value = false;
   }
